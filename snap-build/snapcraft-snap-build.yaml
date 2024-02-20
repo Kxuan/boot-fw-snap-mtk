@@ -1,0 +1,224 @@
+# This file is for test only. Replace snap/snapcraft.yaml with this file to
+# build boot firmware from source.
+# MediaTek builds boot firmware by Yocto recipes. MediaTek recommends
+# building boot firmware by Yocto recipes because only the Yocto bulid is
+# verified by MediaTek.
+name: boot-fw-mtk-g700evk-p1v3
+base: core22
+version: '23.1'
+summary: Boot firmware for MeidaTek Genio 700 EVK P1V3 platform
+description: |
+  This snap includes boot firmware for MediaTek Genio 700 EVK P1V3 platform.
+  Boot firmware includes lk.bin, bl2.img, fip.bin, u-boot-initial-env, and
+  device tree.
+
+grade: stable
+confinement: strict
+architectures:
+  - build-on: [amd64, arm64]
+    build-for: arm64
+
+environment:
+  LD_LIBRARY_PATH: ${SNAP}/lib:${SNAP}/usr/lib/${CRAFT_ARCH_TRIPLET}
+  PATH: ${SNAP}/bin:${SNAP}/usr/bin:${PATH}
+
+build-packages:
+  - arm-trusted-firmware-tools
+  - bison
+  - build-essential
+  - device-tree-compiler
+  - flex
+  - libssl-dev:${CRAFT_TARGET_ARCH}
+  - libncurses-dev:${CRAFT_TARGET_ARCH}
+  - python3
+  - python3-pyelftools
+  - u-boot-tools
+  - to arm64:
+    - on arm64:
+      - gcc
+      - g++
+    - else:
+      - gcc-aarch64-linux-gnu
+      - g++-aarch64-linux-gnu
+
+parts:
+  boot-firmware:
+    source: boot-firmware/
+    plugin: dump
+    organize:
+      '*.vfat': usr/lib/boot-firmware/
+      'u-boot-initial-env': usr/lib/boot-firmware/
+      'lk.bin': usr/lib/boot-firmware/
+    prime:
+      - -bl2.img
+      - -fip.bin
+
+  copyright:
+    source: copyright
+    plugin: dump
+    organize:
+      '*': usr/share/doc/boot-firmware/
+
+  u-boot-mtk:
+    plugin: nil
+    source-type: git
+    source: https://gitlab.com/mediatek/aiot/bsp/u-boot.git
+    #source-branch: mtk-v2022.10
+    source-commit: 33ce75ab6df9a47b501ee46bf307618645307986
+    source-depth: 1
+    build-environment:
+      - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+      - U_BOOT_CONFIG: genio_700_evk_defconfig
+    override-pull: |
+      craftctl default
+      SRC_URL="https://gitlab.com/mediatek/aiot/rity/meta-mediatek-bsp/-/raw/rity-kirkstone-v23.1/recipes-bsp/u-boot/files/"
+      wget ${SRC_URL}/0001-Revert-cmd-pxe_utils-Check-fdtcontroladdr-in-label_b.patch
+      SRC_URL="https://gitlab.com/mediatek/aiot/rity/meta-rity/-/raw/rity-kirkstone-v23.1/meta/recipes-bsp/u-boot/files/"
+      wget ${SRC_URL}/0001-cmd-Add-new-command-to-source-embedded-script.patch
+      wget ${SRC_URL}/0001-cmd-Add-new-command-dtbprobe.patch
+      wget ${SRC_URL}/0001-GENIO-board-mediatek-add-AB-firmware-updates-support.patch
+      wget ${SRC_URL}/ab-fwupdate.cfg
+      wget ${SRC_URL}/fdt-env.cfg
+      echo "applying required MediaTek patches"
+      git apply -v \
+        0001-Revert-cmd-pxe_utils-Check-fdtcontroladdr-in-label_b.patch \
+        0001-cmd-Add-new-command-to-source-embedded-script.patch \
+        0001-cmd-Add-new-command-dtbprobe.patch \
+        0001-GENIO-board-mediatek-add-AB-firmware-updates-support.patch
+    override-build: |
+      make -j$(nproc) "${U_BOOT_CONFIG}"
+      scripts/kconfig/merge_config.sh -m .config ab-fwupdate.cfg
+      scripts/kconfig/merge_config.sh -m .config fdt-env.cfg
+      make -j$(nproc) V=1 -Wl,--enable-new-dtags -Wl,-O1 -Wl,--allow-shlib-undefined all
+      cp u-boot.bin "${CRAFT_PART_INSTALL}"
+    prime:
+      - -*
+
+  optee-fde:
+    plugin: dump
+    source-type: git
+    source: https://git.launchpad.net/~ondrak/+git/optee-uc-fde
+    source-branch: with-helper
+    organize:
+      '*': optee-fde/
+    prime:
+      - -*
+
+  optee-os:
+    after:
+      - optee-fde
+    plugin: nil
+    source-type: git
+    source: https://gitlab.com/mediatek/aiot/bsp/optee-os.git
+    #source-branch: mtk-v3.19
+    source-commit: 8b7fb28b69f45208500847af1975da26a225c02a
+    source-depth: 1
+    build-environment:
+      - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+      - CFG_ARM64_core: y
+      - CROSS_COMPILE_core: "${CRAFT_ARCH_TRIPLET}-"
+      - CROSS_COMPILE_ta_arm64: "${CRAFT_ARCH_TRIPLET}-"
+      - NOWERROR: 1
+      - CFG_USER_TA_TARGETS: ta_arm64
+      - DEBUG: 0
+      - CFG_TEE_CORE_LOG_LEVEL: 0
+      - CFG_UART_ENABLE: n
+      - CFG_TZDRAM_START: 0x43200000
+      - CFG_TZDRAM_SIZE: 0x00a00000
+      ### Genio 700 EVK p1v3
+      - PLATFORM_FLAVOR: mt8188
+      - PLATFORM: mediatek-mt8188
+      - CFG_DRAM_SIZE: 0x200000000
+      - SOC_PLATFORM: mt8188
+    override-pull: |
+      craftctl default
+      SRC_URL="https://gitlab.com/mediatek/aiot/rity/meta-mediatek-bsp/-/raw/rity-kirkstone-v23.1/recipes-security/optee/optee-os/"
+      wget ${SRC_URL}/0001-allow-setting-sysroot-for-libgcc-lookup.patch
+      wget ${SRC_URL}/0002-allow-setting-sysroot-for-clang.patch
+      wget ${SRC_URL}/0003-core-add-support-for-EARLY_TA_DIR.patch
+      echo "applying required MediaTek patches"
+      git apply -v \
+        0001-allow-setting-sysroot-for-libgcc-lookup.patch \
+        0002-allow-setting-sysroot-for-clang.patch \
+        0003-core-add-support-for-EARLY_TA_DIR.patch
+    override-build: |
+      make -j$(nproc) V=1 all
+      cp out/arm-plat-mediatek/core/tee.bin "${CRAFT_PART_INSTALL}"
+    prime:
+      - -*
+
+  libdram-prebuilt:
+    plugin: dump
+    source-type: git
+    source: https://gitlab.com/mediatek/aiot/rity/libdram-prebuilt.git
+    source-branch: main
+    source-depth: 1
+    organize:
+      mt8395-demo: usr/lib
+    stage:
+      - usr/lib
+    prime:
+      - -*
+
+  libbase-prebuilt:
+    plugin: dump
+    source-type: git
+    source: https://gitlab.com/mediatek/aiot/bsp/libbase-prebuilt.git
+    source-branch: main
+    source-depth: 1
+    organize:
+      mt8195: usr/lib
+    stage:
+      - usr/lib
+    prime:
+      - -*
+
+  trusted-firmware-a:
+    after:
+      - u-boot-mtk
+      - optee-os
+      - libdram-prebuilt
+      - libbase-prebuilt
+    plugin: nil
+    source-type: git
+    source: https://gitlab.com/mediatek/aiot/bsp/trusted-firmware-a.git
+    #source-branch: mtk-v2.6
+    source-commit: 1a7820221e01b84f3d01b49d22310cc48eb0793e
+    source-depth: 1
+    build-environment:
+      - CROSS_COMPILE: "${CRAFT_ARCH_TRIPLET}-"
+      - PLATFORM: mt8188
+      - PLAT_HW_CRYPTO: 1
+      - LIBDRAM: ${CRAFT_STAGE}/usr/lib/libdram.a
+      - LIBBASE: ${CRAFT_STAGE}/usr/lib/libbase.a
+      - BL33: ${CRAFT_STAGE}/u-boot.bin
+      - BL32: ${CRAFT_STAGE}/tee.bin
+      - MEDIA: emmc
+    override-pull: |
+      craftctl default
+      SRC_URL="https://gitlab.com/mediatek/aiot/rity/meta-mediatek-bsp/-/raw/rity-kirkstone-v23.1/recipes-bsp/trusted-firmware-a/files/"
+      wget ${SRC_URL}/0001-tf-a-auth-add-support-for-HW-crypto.patch
+      echo "applying required MediaTek patches"
+      git apply -v 0001-tf-a-auth-add-support-for-HW-crypto.patch
+    override-build: |
+      make -j$(nproc) V=1 E=0 PLAT=${PLATFORM} SPD=opteed PLAT_AB_BOOT_ENABLE=1 PLAT_HW_CRYPTO=${PLAT_HW_CRYPTO} \
+        BUILD_BASE=${CRAFT_PART_BUILD}/build \
+        OPENSSL_DIR=/usr/lib/${CRAFT_ARCH_TRIPLET} \
+        LIBDRAM=${LIBDRAM} LIBBASE=${LIBBASE} \
+        BL32=${BL32} BL33=${BL33} NEED_BL32=yes NEED_BL33=yes CFLAGS+=-DNEED_BL32 \
+        bl31
+      make -j$(nproc) V=1 E=0 PLAT=${PLATFORM} SPD=opteed PLAT_AB_BOOT_ENABLE=1 PLAT_HW_CRYPTO=${PLAT_HW_CRYPTO} \
+        BUILD_BASE=${CRAFT_PART_BUILD}/build \
+        OPENSSL_DIR=/usr/lib/${CRAFT_ARCH_TRIPLET} \
+        LIBDRAM=${LIBDRAM} LIBBASE=${LIBBASE} \
+        BL32=${BL32} BL33=${BL33} NEED_BL32=yes NEED_BL33=yes CFLAGS+=-DNEED_BL32 \
+        bl2
+      cp build/${PLATFORM}/release/bl2.bin bl2.img.tmp
+      truncate -s%4 bl2.img.tmp
+      mkimage -T mtk_image -a 0x201000 -e 0x201000 -n "media=${MEDIA};arm64=1" -d bl2.img.tmp bl2.img
+      cp bl2.img "${CRAFT_PART_INSTALL}"
+      fiptool create --soc-fw build/${PLATFORM}/release/bl31.bin \
+        --tos-fw ${BL32} --nt-fw ${BL33} fip.bin
+      cp fip.bin "${CRAFT_PART_INSTALL}"
+    organize:
+      '*': usr/lib/boot-firmware/

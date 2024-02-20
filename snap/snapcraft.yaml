@@ -1,0 +1,27 @@
+name: boot-fw-mtk-g700evk-p1v3
+base: core22
+version: '23.1'
+summary: Boot firmware for MeidaTek Genio 700 EVK P1V3 platform
+description: |
+  This snap includes boot firmware for MediaTek Genio 700 EVK P1V3 platform.
+  Boot firmware includes lk.bin, bl2.img, fip.bin, u-boot-initial-env, and
+  device tree.
+
+grade: stable
+confinement: strict
+architectures:
+  - build-on: [amd64, arm64]
+    build-for: arm64
+
+parts:
+  boot-firmware:
+    source: boot-firmware/
+    plugin: dump
+    organize:
+      '*': usr/lib/boot-firmware/
+
+  copyright:
+    source: copyright
+    plugin: dump
+    organize:
+      '*': usr/share/doc/boot-firmware/
