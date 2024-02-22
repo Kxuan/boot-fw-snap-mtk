@@ -1,7 +1,7 @@
 # This file is for test only. Replace snap/snapcraft.yaml with this file to
 # build boot firmware from source.
 # MediaTek builds boot firmware by Yocto recipes. MediaTek recommends
-# building boot firmware by Yocto recipes because only the Yocto bulid is
+# building boot firmware by Yocto recipes because only the Yocto build is
 # verified by MediaTek.
 name: boot-fw-mtk-g350evk-p1v3
 base: core22
@@ -154,7 +154,7 @@ parts:
     source-branch: main
     source-depth: 1
     organize:
-      mt8395-demo: usr/lib
+      mt8365-sb35: usr/lib
     stage:
       - usr/lib
     prime:
@@ -167,7 +167,7 @@ parts:
     source-branch: main
     source-depth: 1
     organize:
-      mt8195: usr/lib
+      mt8365: usr/lib
     stage:
       - usr/lib
     prime:
