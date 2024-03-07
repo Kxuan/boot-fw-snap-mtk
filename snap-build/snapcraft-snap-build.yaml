@@ -1,7 +1,7 @@
 # This file is for test only. Replace snap/snapcraft.yaml with this file to
 # build boot firmware from source.
 # MediaTek builds boot firmware by Yocto recipes. MediaTek recommends
-# building boot firmware by Yocto recipes because only the Yocto bulid is
+# building boot firmware by Yocto recipes because only the Yocto build is
 # verified by MediaTek.
 name: boot-fw-mtk-g1200evk-p1v2
 base: core22
@@ -91,6 +91,7 @@ parts:
       scripts/kconfig/merge_config.sh -m .config fdt-env.cfg
       make -j$(nproc) V=1 -Wl,--enable-new-dtags -Wl,-O1 -Wl,--allow-shlib-undefined all
       cp u-boot.bin "${CRAFT_PART_INSTALL}"
+      cp tools/mkimage "${CRAFT_PART_INSTALL}"
     prime:
       - -*
 
@@ -215,7 +216,7 @@ parts:
         bl2
       cp build/${PLATFORM}/release/bl2.bin bl2.img.tmp
       truncate -s%4 bl2.img.tmp
-      mkimage -T mtk_image -a 0x201000 -e 0x201000 -n "media=${MEDIA};arm64=1" -d bl2.img.tmp bl2.img
+      ${CRAFT_STAGE}/mkimage -T mtk_image -a 0x201000 -e 0x201000 -n "media=${MEDIA};arm64=1" -d bl2.img.tmp bl2.img
       cp bl2.img "${CRAFT_PART_INSTALL}"
       fiptool create --soc-fw build/${PLATFORM}/release/bl31.bin \
         --tos-fw ${BL32} --nt-fw ${BL33} fip.bin
