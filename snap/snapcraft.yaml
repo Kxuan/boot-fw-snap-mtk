@@ -1,0 +1,27 @@
+name: boot-fw-mtk-g510evk-p1v1
+base: core22
+version: '23.2'
+summary: Boot firmware for MeidaTek Genio 510 EVK P1V1 platform
+description: |
+  This snap includes boot firmware for MediaTek Genio 510 EVK P1V1 platform.
+  Boot firmware includes lk.bin, bl2.img, fip.bin, u-boot-initial-env, and
+  device tree.
+
+grade: stable
+confinement: strict
+architectures:
+  - build-on: [amd64, arm64]
+    build-for: arm64
+
+parts:
+  boot-firmware:
+    source: boot-firmware/
+    plugin: dump
+    organize:
+      '*': usr/lib/boot-firmware/
+
+  copyright:
+    source: copyright
+    plugin: dump
+    organize:
+      '*': usr/share/doc/boot-firmware/
