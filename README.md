@@ -11,16 +11,16 @@ The name of boot firmware snaps must follow rules below.
 
 2. Snap name: boot-fw-{BOARD-VENDOR}-{BOARD-NAME}-{BOARD-VER}
 
-   Examples:
-   boot-fw-mtk-g1200evk-p1v2
-   boot-fw-mtk-g1200evkufs-p1v2
-   boot-fw-mtk-g700evk-p1v3
+   Examples:  
+   boot-fw-mtk-g1200evk-p1v2  
+   boot-fw-mtk-g1200evkufs-p1v2  
+   boot-fw-mtk-g700evk-p1v3  
    boot-fw-mtk-g350evk-p1v3
 
-   If your board name or board version contains dash (-), please remove it.
-   Example:
-   Board name: g1200-evk-ufs
-   Board version: p1-v2
+   If your board name or board version contains dash (-), please remove it.  
+   Example:  
+   Board name: g1200-evk-ufs  
+   Board version: p1-v2  
    Snap name: boot-fw-mtk-g1200evkufs-p1v2
 
 3. The SKU Number field of System Information (Type 1) in SMBIOS should
@@ -84,12 +84,12 @@ You can use [the online generator](https://fwupd.org/lvfs/guid) to manually conv
 
 2. Replace boot fimware in /boot-firmware with pre-built boot firmware of your board.
 
-3. Update snap/snapcraft.yaml accordingly.
+3. Update snap/snapcraft.yaml accordingly.  
    Please update fields in snap/snapcraft.yaml: name, version, summary, description, etc
 
 4. Create an Ubuntu SSO account at https://login.ubuntu.com
 
-5. Register your boot firmware snap at https://dashboard.snapcraft.io/register-snap/
+5. Register your boot firmware snap at https://dashboard.snapcraft.io/register-snap/.  
    The manual review is required for a snap with prefix "boot-fw". Please contact Canonical account field engineer for snap review and track creation.
 
 6. Build and upload your firmware snap to store
