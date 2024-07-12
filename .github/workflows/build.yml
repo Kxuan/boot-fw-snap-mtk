@@ -1,0 +1,70 @@
+name: Build Ubuntu (Genio)
+
+on:
+  push:
+    branches:
+      - 'mtk-**'
+      - 'dev/**'
+  workflow_dispatch:
+    inputs:
+      snapcraft-upload:
+        description: 'Upload to Snap Store'
+        type: boolean
+        default: false
+        required: false
+      ubuntu-version:
+        description: 'Ubuntu version'
+        type: choice
+        default: '22'
+        options:
+          - '22'
+          - '24'
+      extra-ppa:
+        # Example Value: https://your-lp-username:your-secret-token@private-ppa.launchpadcontent.net/baoshan-ppa/baoshan-updates/ubuntu
+        description: 'Input full url of ppa'
+        type: string
+        required: false
+
+defaults:
+  run:
+    shell: bash
+    working-directory: .
+
+jobs:
+  snap:
+    name: Build boot-assets for G1200
+    runs-on: [ self-hosted, jammy, large ]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install snapcraft
+      run: sudo snap install --classic snapcraft
+
+    - name: Prepare sources.list
+      run:  |
+        CODENAME=$(case "${{ inputs.ubuntu-version }}" in
+          24) echo noble;;
+          22|"") echo jammy;;
+          *) echo 'Unsupported release' >&2; exit 1;;
+          esac)
+        find apt/sources.list.d -type f -exec sed -i "s/jammy/$CODENAME/" {} +
+        if [ -n "${{ inputs.extra-ppa }}" ]; then
+          echo 'deb ${{ inputs.extra-ppa }} $CODENAME main' > apt/sources.list.d/ppa.list
+        fi
+
+    - name: Build Snap
+      run: sudo snapcraft pack --destructive-mode
+
+    - name: Upload to Snapstore
+      if: ${{ inputs.snapcraft-upload }}
+      env:
+        SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+      run: snapcraft upload boot-fw-mtk-g1200evk-p1v2*.snap --release=${ubuntu-version}/candidate
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: snap
+        path: |
+          boot-fw-mtk-g1200evk-p1v2*.snap
