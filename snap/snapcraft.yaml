@@ -1,0 +1,64 @@
+name: boot-fw-mtk-g1200evkufs-p1v2
+base: core22
+version: '23.1'
+summary: Boot firmware for MeidaTek Genio 1200 EVK UFS P1V2 platform
+description: |
+  This snap includes boot firmware for MediaTek Genio 1200 EVK UFS P1V2 platform.
+  Boot firmware includes lk.bin, bl2.img, fip.bin, u-boot-initial-env, and
+  device tree.
+
+grade: stable
+confinement: strict
+architectures:
+  - build-on: [amd64, arm64]
+    build-for: arm64
+
+parts:
+  boot-firmware:
+    after:
+      - device-tree
+    source: boot-firmware/
+    plugin: dump
+    organize:
+      '*': usr/lib/boot-firmware/
+
+  copyright:
+    source: copyright
+    plugin: dump
+    organize:
+      '*': usr/share/doc/boot-firmware/
+
+  # Note: The device tree for EVK boards are pre-compiled in the kernel, so we
+  #       could just use it. But for ODM vendor, you need to prepare your own
+  #       device-tree following by ubuntu document.
+  device-tree:
+    plugin: nil
+    build-packages:
+      - devscripts
+      - dosfstools
+      - mtools
+    build-environment:
+      - DEBIAN_FRONTEND: noninteractive
+    override-build: |
+      set -eux
+      env
+      chdist -d tmp -a arm64 create ubuntu
+      cp -vr ${SNAPCRAFT_PROJECT_DIR}/apt/sources.list.d tmp/ubuntu/etc/apt/
+      chdist -d tmp -a arm64 apt-get ubuntu update
+      IMG_PKG_NAME=$(chdist -d tmp -a arm64 apt-cache ubuntu depends linux-image-mtk | grep 'Depends:' | awk -F: '{print $2}')
+      MODULE_PKG_NAME=$(chdist -d tmp -a arm64 apt-cache ubuntu depends ${IMG_PKG_NAME} | grep 'Depends:' | grep 'linux-modules-.*-mtk' | awk -F: '{print $2}')
+      chdist -d tmp -a arm64 apt-get ubuntu download ${MODULE_PKG_NAME}
+      dpkg-deb --extract linux-modules-*-mtk_*_arm64.deb tmp
+      
+      find tmp/lib/firmware/*/device-tree/mediatek/{genio-1200-evk-ufs.dtb,genio-1200-evk,mt8395} \
+          \( -name '*.dtb' -or -name '*.dtbo' \) \
+          -exec install -D -t tmp/FIRMWARE/mediatek/genio-1200-evk-ufs/ {} +
+
+      fallocate -l 32M firmware.vfat
+      mkfs.vfat firmware.vfat
+      mcopy -i firmware.vfat -s tmp/FIRMWARE ::
+      cp firmware.vfat ${SNAPCRAFT_PART_INSTALL}/firmware.vfat
+    organize:
+      'firmware.vfat': usr/lib/boot-firmware/firmware.vfat
+    prime:
+      - usr/lib/boot-firmware/firmware.vfat

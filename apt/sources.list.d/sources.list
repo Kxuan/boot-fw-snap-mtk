@@ -1,0 +1,4 @@
+deb http://ports.ubuntu.com jammy main universe restricted multiverse
+deb http://ports.ubuntu.com jammy-updates main universe restricted multiverse
+deb http://ports.ubuntu.com jammy-backports main universe restricted multiverse
+deb http://ports.ubuntu.com jammy-security main universe restricted multiverse
